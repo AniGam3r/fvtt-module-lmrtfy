@@ -1,5 +1,3 @@
-console.log("LMRTFY | Loading LMRTFYRequestor class...");
-
 class LMRTFYRequestor extends FormApplication {
     constructor(...args) {
         super(...args)
@@ -55,32 +53,28 @@ class LMRTFYRequestor extends FormApplication {
 
     async getData() {
         // Return data to the template
-        // V13 Fix: Use .contents
+        // V13 FIX: Use .contents
         const actors = game.actors.contents;
         const users = game.users.contents;
-        // Note: Maybe these work better at a global level, but keeping things simple
+        
         const abilities = LMRTFY.abilities;
         const saves = LMRTFY.saves;
         const abilityModifiers = LMRTFY.abilityModifiers;
 
-        console.log("LMRTFY DEBUG | Requestor getData skills raw:", LMRTFY.skills);
-
-        // V13/5e Fix: Ensure skills are flattened Strings before sorting
+        // V13/5e FIX: Ensure skill labels are strings. D&D 5e 3.x+ uses objects.
+        // Added safety check for 'label' and 'localize' to prevent key.split error.
         const skills = Object.keys(LMRTFY.skills)
             .sort((a, b) => {
-                let skillA = LMRTFY.skills[a];
-                let skillB = LMRTFY.skills[b];
-                
-                if(typeof skillA === 'object') skillA = skillA.label || a;
-                if(typeof skillB === 'object') skillB = skillB.label || b;
-
-                return game.i18n.localize(skillA).localeCompare(game.i18n.localize(skillB));
+                const skillAObj = LMRTFY.skills[a];
+                const skillBObj = LMRTFY.skills[b];
+                const labelA = (skillAObj?.label) ? skillAObj.label : (typeof skillAObj === 'string' ? skillAObj : a);
+                const labelB = (skillBObj?.label) ? skillBObj.label : (typeof skillBObj === 'string' ? skillBObj : b);
+                return game.i18n.localize(labelA).localeCompare(game.i18n.localize(labelB));
             })
             .reduce((acc, skillKey) => {
-                let skill = LMRTFY.skills[skillKey];
-                if(typeof skill === 'object') skill = skill.label || skillKey;
-                
-                acc[skillKey] = skill;
+                const skillObj = LMRTFY.skills[skillKey];
+                const skillLabel = (skillObj?.label) ? skillObj.label : (typeof skillObj === 'string' ? skillObj : skillKey);
+                acc[skillKey] = skillLabel;
                 return acc;
             }, {});
 
@@ -101,7 +95,7 @@ class LMRTFYRequestor extends FormApplication {
             tables,
             specialRolls: LMRTFY.specialRolls,
             rollModes: CONFIG.Dice.rollModes,
-            showDC: (game.system.id === 'pf2e') ? true : false,
+            showDC: (game.system.id === 'pf2e'),
             abilityModifiers,
         };
     }
@@ -117,10 +111,9 @@ class LMRTFYRequestor extends FormApplication {
     
     activateListeners(html) {
         super.activateListeners(html);
-        
-        // V13: Ensure html is wrapped
+        // V13 Safety wrapper
         html = $(html);
-
+        
         html.find(".select-all").click((event) => this.setActorSelection(event, true));
         html.find(".deselect-all").click((event) => this.setActorSelection(event, false));
         html.find("select[name=user]").change(this._onUserChange.bind(this));
@@ -140,7 +133,6 @@ class LMRTFYRequestor extends FormApplication {
         this.element.find(".lmrtfy-actor input").prop("checked", enabled)
     }
 
-    // From _onHoverMacro
     _onHoverActor(event) {
         event.preventDefault();
         const div = event.currentTarget;
@@ -170,12 +162,12 @@ class LMRTFYRequestor extends FormApplication {
             const gameUsers = game.users.contents;
             actors = gameUsers.map(u => u.character?.id).filter(a => a)
         } else if (userId === "tokens") {
-            actors = Array.from(new Set(canvas.tokens.controlled.map(t => t.actor.id))).filter(a => a);
+            actors = Array.from(new Set(canvas.tokens.controlled.map(t => t.actor?.id))).filter(a => a);
         } else {
             const user = game.users.get(userId);
             if (user) {
                 const gameActors = game.actors.contents;
-                // V13 Fix: testUserPermission
+                // V13 FIX: check permission method
                 actors = gameActors.filter(a => a.testUserPermission(user, "OWNER")).map(a => a.id)
             }
         }
@@ -325,7 +317,6 @@ class LMRTFYRequestor extends FormApplication {
     }
 
     async _updateObject(event, formData) {
-        console.log("LMRTFY DEBUG | Submitting Request Form:", formData);
         const saveAsMacro = $(event.currentTarget).hasClass("lmrtfy-save-roll")
         const keys = Object.keys(formData)
         const user_actors = this._getUserActorIds(formData.user).map(id => `actor-${id}`);
@@ -433,15 +424,24 @@ class LMRTFYRequestor extends FormApplication {
             const target = user ? user.name : actorTargets;
             const scriptContent = `// ${title} ${message ? " -- " + message : ""}\n` +
                 `// Request rolls from ${target}\n` +
-                `// Abilities: ${abilities.map(a => LMRTFY.abilities[a]).filter(s => s).join(", ")}\n` +
-                `// Saves: ${saves.map(a => LMRTFY.saves[a]).filter(s => s).join(", ")}\n` +
-                `// Skills: ${skills.map(s => LMRTFY.skills[s]).filter(s => s).join(", ")}\n` +
+                `// Abilities: ${abilities.map(a => {
+                    const label = LMRTFY.abilities[a];
+                    return (label?.label) ? label.label : label;
+                }).filter(s => s).join(", ")}\n` +
+                `// Saves: ${saves.map(a => {
+                    const label = LMRTFY.saves[a];
+                    return (label?.label) ? label.label : label;
+                }).filter(s => s).join(", ")}\n` +
+                `// Skills: ${skills.map(s => {
+                    const label = LMRTFY.skills[s];
+                    return (label?.label) ? label.label : label;
+                }).filter(s => s).join(", ")}\n` +
                 `const data = ${JSON.stringify(socketData, null, 2)};\n\n` +
                 `${selectedSection}` +
                 `game.socket.emit('module.lmrtfy', data);\n`;
             const macro = await Macro.create({
                 name: "LMRTFY: " + (message || title),
-                type: "script",
+                type: foundry.CONST.MACRO_TYPES.SCRIPT,
                 scope: "global",
                 command: scriptContent,
                 img: "icons/svg/d20-highlight.svg"
@@ -456,5 +456,4 @@ class LMRTFYRequestor extends FormApplication {
     }
 }
 
-// Export Global
 window.LMRTFYRequestor = LMRTFYRequestor;
