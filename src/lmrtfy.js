@@ -184,10 +184,10 @@ class LMRTFY {
 
     static create5eAbilities() {
         let abbr = {};
-        for (let key in CONFIG.DND5E.abilities) {
-            let abb = game.i18n.localize(CONFIG.DND5E.abilities[key].abbreviation);
+        for (let [key, data] of Object.entries(CONFIG.DND5E.abilities)) {
+            let abb = game.i18n.localize(data.abbreviation);
             let upperFirstLetter = abb.charAt(0).toUpperCase() + abb.slice(1);
-            abbr[`${abb}`] = `DND5E.Ability${upperFirstLetter}`;
+            abbr[key] = `DND5E.Ability${upperFirstLetter}`;
         }
         return abbr;
     }
@@ -220,7 +220,6 @@ class LMRTFY {
     }
 
     static getSceneControlButtons(controls) {
-        // V13 Hook Adjustment
         const buttons = controls.controls || controls;
         if (!Array.isArray(buttons)) return;
         const tokenButton = buttons.find(b => b.name === "token");
@@ -238,7 +237,6 @@ class LMRTFY {
 
     static buildAbilityModifier(actor, ability) {
         const modifiers = [];
-        // V13 System Data Path
         const abilityData = actor.system.abilities?.[ability];
         if (!abilityData) return null;
         const mod = game.pf2e.AbilityModifier.fromScore(ability, abilityData.value);
@@ -250,7 +248,6 @@ class LMRTFY {
     }
 
     static async hideBlind(message, html, data) {
-        // V13 Native Element Wrapper
         html = $(html);
         if (message.flags?.lmrtfy?.blind && !game.user.isGM) {
             const content = '<p>??</p>';
@@ -275,5 +272,5 @@ class LMRTFY {
 globalThis.LMRTFYRequestRoll = LMRTFY.requestRoll;
 Hooks.once('init', LMRTFY.init);
 Hooks.on('ready', LMRTFY.ready);
-Hooks.on('getSceneControlButtons', LMRTFY.getSceneControlButtons);
+Hooks.on('getSceneControlButtons', (controls) => LMRTFY.getSceneControlButtons(controls));
 Hooks.on('renderChatMessage', LMRTFY.hideBlind);
