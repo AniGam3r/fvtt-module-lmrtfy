@@ -1,6 +1,5 @@
-console.log("LMRTFY | Loading LMRTFYRoller class...");
-
 class LMRTFYRoller extends Application {
+
     constructor(actors, data) {
         super();
         this.actors = actors;
@@ -36,13 +35,9 @@ class LMRTFYRoller extends Application {
         }
 
         this.hasMidi = game.modules.get("midi-qol")?.active;
+        // V13 FIX: use foundry.utils
         this.midiUseNewRoller = foundry.utils.isNewerVersion(game.modules.get("midi-qol")?.version, "10.0.26");
 
-        // Register helpers immediately
-        this._registerHelpers();
-    }
-
-    _registerHelpers() {
         Handlebars.registerHelper('canFailAbilityChecks', function (name, ability) {
             if (LMRTFY.canFailChecks) {
                 return `<div>` +
@@ -92,7 +87,7 @@ class LMRTFYRoller extends Application {
         options.height = "auto";
         options.classes = ["lmrtfy", "lmrtfy-roller"];
         if (game.settings.get('lmrtfy', 'enableParchmentTheme')) {
-            options.classes.push('lmrtfy-parchment');
+          options.classes.push('lmrtfy-parchment');
         }
         return options;
     }
@@ -108,7 +103,6 @@ class LMRTFYRoller extends Application {
         data.abilities = abilities;
         new LMRTFYRoller([actor], data).render(true);
     }
-
     static requestSkillChecks(actor, skills, options={}) {
         if (!actor || !skills) return;
         if (typeof(skills) === "string") skills = [skills];
@@ -120,7 +114,6 @@ class LMRTFYRoller extends Application {
         data.skills = skills;
         new LMRTFYRoller([actor], data).render(true);
     }
-
     static requestSavingThrows(actor, saves, options={}) {
         if (!actor || !saves) return;
         if (typeof(saves) === "string") saves = [saves];
@@ -162,24 +155,23 @@ class LMRTFYRoller extends Application {
         this.abilities.forEach(a => abilities[a] = LMRTFY.abilities[a])
         this.saves.forEach(a => saves[a] = LMRTFY.saves[a])
         
-        // V13/5e Fix: Ensure we are handling objects correctly
-        this.skills.forEach(s => {
-            let skillLabel = LMRTFY.skills[s];
-            if (typeof skillLabel === 'object') skillLabel = skillLabel.label || s;
-            skills[s] = skillLabel;
-        });
-
-        // Sort keys based on localized values
-        const sortedSkills = {};
-        Object.keys(skills).sort((a, b) => {
-            return game.i18n.localize(skills[a]).localeCompare(game.i18n.localize(skills[b]));
-        }).forEach(key => sortedSkills[key] = skills[key]);
+        // FIX: Ensure skill labels are extracted as strings to prevent Handlebars crash
+        this.skills
+            .sort((a, b) => {
+                const skillA = (LMRTFY.skills[a]?.label) ? LMRTFY.skills[a].label : LMRTFY.skills[a];
+                const skillB = (LMRTFY.skills[b]?.label) ? LMRTFY.skills[b].label : LMRTFY.skills[b];
+                return game.i18n.localize(skillA).localeCompare(game.i18n.localize(skillB));
+            })
+            .forEach(s => {
+                const skill = (LMRTFY.skills[s]?.label) ? LMRTFY.skills[s].label : LMRTFY.skills[s];
+                skills[s] = skill;
+            });
 
         const data = {
             actors: this.actors,
             abilities: abilities,
             saves: saves,
-            skills: sortedSkills,
+            skills: skills,
             note: note,
             message: this.message,
             customFormula: this.data.formula || false,
@@ -195,30 +187,29 @@ class LMRTFYRoller extends Application {
 
     activateListeners(html) {
         super.activateListeners(html);
-        html.find(".lmrtfy-ability-check").click(this._onAbilityCheck.bind(this))
-        html.find(".lmrtfy-ability-save").click(this._onAbilitySave.bind(this))
-        html.find(".lmrtfy-skill-check").click(this._onSkillCheck.bind(this))
-        html.find(".lmrtfy-custom-formula").click(this._onCustomFormula.bind(this))
-        html.find(".lmrtfy-roll-table").click(this._onRollTable.bind(this));
-        
+        this.element.find(".lmrtfy-ability-check").click(this._onAbilityCheck.bind(this))
+        this.element.find(".lmrtfy-ability-save").click(this._onAbilitySave.bind(this))
+        this.element.find(".lmrtfy-skill-check").click(this._onSkillCheck.bind(this))
+        this.element.find(".lmrtfy-custom-formula").click(this._onCustomFormula.bind(this))
+        this.element.find(".lmrtfy-roll-table").click(this._onRollTable.bind(this));
         if(LMRTFY.specialRolls['initiative']) {
-            html.find(".lmrtfy-initiative").click(this._onInitiative.bind(this))
+            this.element.find(".lmrtfy-initiative").click(this._onInitiative.bind(this))
         }
         if(LMRTFY.specialRolls['deathsave']) {
-            html.find(".lmrtfy-death-save").click(this._onDeathSave.bind(this))
+            this.element.find(".lmrtfy-death-save").click(this._onDeathSave.bind(this))
         }
         if(LMRTFY.specialRolls['perception']) {
-            html.find(".lmrtfy-perception").click(this._onPerception.bind(this))
+            this.element.find(".lmrtfy-perception").click(this._onPerception.bind(this))
         }
 
-        html.find(".enable-lmrtfy-ability-check-fail").click(this._onToggleFailAbilityRoll.bind(this));
-        html.find(".lmrtfy-ability-check-fail").click(this._onFailAbilityCheck.bind(this));        
+        this.element.find(".enable-lmrtfy-ability-check-fail").click(this._onToggleFailAbilityRoll.bind(this));
+        this.element.find(".lmrtfy-ability-check-fail").click(this._onFailAbilityCheck.bind(this));        
         
-        html.find(".enable-lmrtfy-ability-save-fail").click(this._onToggleFailSaveRoll.bind(this));
-        html.find(".lmrtfy-ability-save-fail").click(this._onFailAbilitySave.bind(this));    
+        this.element.find(".enable-lmrtfy-ability-save-fail").click(this._onToggleFailSaveRoll.bind(this));
+        this.element.find(".lmrtfy-ability-save-fail").click(this._onFailAbilitySave.bind(this));    
 
-        html.find(".enable-lmrtfy-skill-check-fail").click(this._onToggleFailSkillRoll.bind(this));
-        html.find(".lmrtfy-skill-check-fail").click(this._onFailSkillCheck.bind(this));    
+        this.element.find(".enable-lmrtfy-skill-check-fail").click(this._onToggleFailSkillRoll.bind(this));
+        this.element.find(".lmrtfy-skill-check-fail").click(this._onFailSkillCheck.bind(this));    
     }
 
     _checkClose() {
@@ -286,37 +277,32 @@ class LMRTFYRoller extends Application {
     }
 
     async _makeRoll(event, rollMethod, failRoll, ...args) {
-        console.log(`LMRTFY | _makeRoll | Method: ${rollMethod} | Args:`, args);
         let options = this._getRollOptions(event, failRoll);                
 
+        // save the current roll mode to reset it after this roll
         const rollMode = game.settings.get("core", "rollMode");
-        game.settings.set("core", "rollMode", this.mode || CONST.DICE_ROLL_MODES);
+        game.settings.set("core", "rollMode", this.mode || "roll");
 
         for (let actor of this.actors) {
             Hooks.once("preCreateChatMessage", this._tagMessage.bind(this));
 
+            // system specific roll handling
             switch (game.system.id) {
                 case "dnd5e": {
-                    const key = args[0]; 
-                    
+                    // FIX: D&D 5e v3+ requires Object syntax
+                    const key = args[0];
                     let rollConfig = foundry.utils.mergeObject(options, {
-                        fastForward: true, 
-                        chatMessage: false // Stop double roll, let midi handle or system handle cleanly
+                        fastForward: true,
+                        chatMessage: true
                     });
 
-                    // Map method to config
                     if (rollMethod === 'rollSkill') {
                         rollConfig.skill = key;
                     } else {
                         rollConfig.ability = key;
                     }
 
-                    console.log("LMRTFY | D&D5e Roll Config:", rollConfig);
-                    try {
-                        await actor[rollMethod](rollConfig);
-                    } catch (e) {
-                        console.error("LMRTFY | Roll Error:", e);
-                    }
+                    await actor[rollMethod](rollConfig);
                     break;
                 }
 
@@ -334,7 +320,6 @@ class LMRTFYRoller extends Application {
                             break;
 
                         case this.pf2eRollFor.SKILL:
-                            // V13 Fix: actor.system
                             const skill = actor.system.skills[args[0]];
                             if (!skill) continue;
 
@@ -347,12 +332,13 @@ class LMRTFYRoller extends Application {
                             actor.perception.roll({ event, precOptions, dc: this.dc });
                             break;
                     }
+
                     break;
                 }
 
                 case "foundry-chromatic-dungeons": {
                     const key = args[0];
-                    const {attributes, attributeMods, saves} = actor.system.data;
+                    const {attributes, attributeMods, saves} = actor.system;
                     let label, formula, target;
 
                     switch (rollMethod) {
@@ -393,8 +379,8 @@ class LMRTFYRoller extends Application {
                       case 2:
                         await actor[rollMethod].call(actor, ...args, options);
                         break;
-                    }           
-                    break;
+                    }			
+					break;
                 }
 
                 default: {
@@ -411,10 +397,9 @@ class LMRTFYRoller extends Application {
 
     _makePF2EInitiativeRoll(event) {
         const rollMode = game.settings.get("core", "rollMode");
-        game.settings.set("core", "rollMode", this.mode || CONST.DICE_ROLL_MODES);
+        game.settings.set("core", "rollMode", this.mode || "roll");
 
         for (let actor of this.actors) {
-            // V13 Fix: actor.system
             const initiative = actor.system.attributes.initiative;
             const rollNames = ['all', 'initiative'];
             if (initiative.ability === 'perception') {
@@ -441,19 +426,19 @@ class LMRTFYRoller extends Application {
 
     _makeDemonLordInitiativeRoll(event) {
         const rollMode = game.settings.get("core", "rollMode");
-        game.settings.set("core", "rollMode", this.mode || CONST.DICE_ROLL_MODES);
+        game.settings.set("core", "rollMode", this.mode || "roll");
 
         if (game.combat?.combatants !== undefined) {
             let combatantFound
             for (let actor of this.actors) {
                 combatantFound = null
                 for (const combatant of game.combat.combatants) {
-                    if (combatant.actor?._id === actor._id) {
+                    if (combatant.actor?.id === actor.id) {
                         combatantFound = combatant
                     }
                 }
                 if (combatantFound) {
-                    game.combat.rollInitiative(combatantFound._id)
+                    game.combat.rollInitiative(combatantFound.id)
                 } else {
                     ui.notifications.warn(game.i18n.localize("LMRTFY.DemonLordNoCombat"));
                 }
@@ -470,11 +455,11 @@ class LMRTFYRoller extends Application {
 
     _makeDemonLordCorruptionRoll() {
         const rollMode = game.settings.get("core", "rollMode");
-        game.settings.set("core", "rollMode", this.mode || CONST.DICE_ROLL_MODES);
+        game.settings.set("core", "rollMode", this.mode || "roll");
 
         for (let actor of this.actors) {
             Hooks.once("preCreateChatMessage", this._tagMessage.bind(this));
-            actor.rollCorruption();
+			actor.rollCorruption();
             }
 
         game.settings.set("core", "rollMode", rollMode);
@@ -522,7 +507,7 @@ class LMRTFYRoller extends Application {
         })
 
         await Promise.allSettled(rollMessagePromises);
-        await ChatMessage.create(rollMessages, {rollMode: this.mode});
+        await ChatMessage.create(rollMessages);
 
         event.currentTarget.disabled = true;
         this._checkClose();
@@ -586,7 +571,7 @@ class LMRTFYRoller extends Application {
                     chatMessages.push(chatData);
 
                     if (count === this.actors.length) {
-                        ChatMessage.create(chatMessages, {});
+                        ChatMessage.create(chatMessages);
 
                         event.currentTarget.disabled = true;
                         this._checkClose();
@@ -601,7 +586,6 @@ class LMRTFYRoller extends Application {
         const ability = event.currentTarget.dataset.ability;
         if (game.system.id === 'pf2e') this.pf2Roll = this.pf2eRollFor.ABILITY;
         
-        // until patching has been removed
         if (!this.hasMidi || this.midiUseNewRoller) {
             this._makeRoll(event, LMRTFY.abilityRollMethod, false, ability);
         } else {
@@ -614,7 +598,6 @@ class LMRTFYRoller extends Application {
         const ability = event.currentTarget.dataset.ability;
         if (game.system.id === 'pf2e') this.pf2Roll = this.pf2eRollFor.ABILITY;
 
-        // until patching has been removed
         if (!this.hasMidi || this.midiUseNewRoller) {
             this._makeRoll(event, LMRTFY.abilityRollMethod, true, ability);
         } else {
@@ -627,7 +610,6 @@ class LMRTFYRoller extends Application {
         const saves = event.currentTarget.dataset.ability;
         if (game.system.id === 'pf2e') this.pf2Roll = this.pf2eRollFor.SAVE;
         
-        // until patching has been removed
         if (!this.hasMidi || this.midiUseNewRoller) {
             this._makeRoll(event, LMRTFY.saveRollMethod, false, saves);
         } else {
@@ -640,7 +622,6 @@ class LMRTFYRoller extends Application {
         const saves = event.currentTarget.dataset.ability;
         if (game.system.id === 'pf2e') this.pf2Roll = this.pf2eRollFor.SAVE;
 
-        // until patching has been removed
         if (!this.hasMidi || this.midiUseNewRoller) {
             this._makeRoll(event, LMRTFY.saveRollMethod, true, saves);
         } else {
@@ -653,7 +634,6 @@ class LMRTFYRoller extends Application {
         const skill = event.currentTarget.dataset.skill;
         if (game.system.id === 'pf2e') this.pf2Roll = this.pf2eRollFor.SKILL;
 
-        // until patching has been removed
         if (!this.hasMidi || this.midiUseNewRoller) {
             this._makeRoll(event, LMRTFY.skillRollMethod, false, skill);
         } else {
@@ -666,7 +646,6 @@ class LMRTFYRoller extends Application {
         const skill = event.currentTarget.dataset.skill;
         if (game.system.id === 'pf2e') this.pf2Roll = this.pf2eRollFor.SKILL;
 
-        // until patching has been removed
         if (!this.hasMidi || this.midiUseNewRoller) {
             this._makeRoll(event, LMRTFY.skillRollMethod, true, skill);
         } else {
@@ -697,7 +676,7 @@ class LMRTFYRoller extends Application {
                     event.currentTarget.disabled = true;
                     this._checkClose();
                 } else {
-                    const initiative = CONFIG.Combat.initiative.formula || game.system.data.initiative;
+                    const initiative = CONFIG.Combat.initiative.formula || "1d20";
                     this._makeDiceRoll(event, initiative, game.i18n.localize("LMRTFY.InitiativeRollMessage"));
                 }
                 break;
@@ -709,8 +688,7 @@ class LMRTFYRoller extends Application {
         switch (game.system.id) {
             case "dnd5e":
                 for (let actor of this.actors) {
-                    // V13 FIX: Pass object with chatMessage false
-                    actor.rollDeathSave({ event, chatMessage: false });
+                    actor.rollDeathSave({event: event, fastForward: true});
                 }
                 break
             case "pf2e":
@@ -778,5 +756,4 @@ class LMRTFYRoller extends Application {
     }
 }
 
-// Global Export
 window.LMRTFYRoller = LMRTFYRoller;
