@@ -1,3 +1,5 @@
+console.log("LMRTFY | Loading LMRTFYRequestor class...");
+
 class LMRTFYRequestor extends FormApplication {
     constructor(...args) {
         super(...args)
@@ -6,7 +8,14 @@ class LMRTFYRequestor extends FormApplication {
         this.selectedDice = [];
         this.selectedModifiers = [];
         this.dice = [
-            'd3', 'd4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'
+            'd3',
+            'd4',
+            'd6',
+            'd8',
+            'd10',
+            'd12',
+            'd20',
+            'd100'
         ];
 
         this.diceFormula = '';
@@ -15,6 +24,7 @@ class LMRTFYRequestor extends FormApplication {
     }
 
     static get defaultOptions() {
+
         let template;
         switch (game.system.id) {
             case "degenesis":
@@ -44,27 +54,33 @@ class LMRTFYRequestor extends FormApplication {
     }
 
     async getData() {
-        // V13 FIX: Use .contents instead of .entities (which is removed)
+        // Return data to the template
+        // V13 Fix: Use .contents
         const actors = game.actors.contents;
         const users = game.users.contents;
-        
+        // Note: Maybe these work better at a global level, but keeping things simple
         const abilities = LMRTFY.abilities;
         const saves = LMRTFY.saves;
         const abilityModifiers = LMRTFY.abilityModifiers;
 
-        // V13/5e FIX: Handle Skills as Objects vs Strings
-        // The previous sort function was missing a 'return', and .localize() failed on objects.
+        console.log("LMRTFY DEBUG | Requestor getData skills raw:", LMRTFY.skills);
+
+        // V13/5e Fix: Ensure skills are flattened Strings before sorting
         const skills = Object.keys(LMRTFY.skills)
             .sort((a, b) => {
-                const skillA = LMRTFY.skills[a]?.label ?? LMRTFY.skills[a] ?? "";
-                const skillB = LMRTFY.skills[b]?.label ?? LMRTFY.skills[b] ?? "";
+                let skillA = LMRTFY.skills[a];
+                let skillB = LMRTFY.skills[b];
+                
+                if(typeof skillA === 'object') skillA = skillA.label || a;
+                if(typeof skillB === 'object') skillB = skillB.label || b;
+
                 return game.i18n.localize(skillA).localeCompare(game.i18n.localize(skillB));
             })
             .reduce((acc, skillKey) => {
-                const skillObj = LMRTFY.skills[skillKey];
-                // Ensure we pass a String to the template, not an Object
-                const label = skillObj?.label ?? skillObj ?? "";
-                acc[skillKey] = label;
+                let skill = LMRTFY.skills[skillKey];
+                if(typeof skill === 'object') skill = skill.label || skillKey;
+                
+                acc[skillKey] = skill;
                 return acc;
             }, {});
 
@@ -85,12 +101,13 @@ class LMRTFYRequestor extends FormApplication {
             tables,
             specialRolls: LMRTFY.specialRolls,
             rollModes: CONFIG.Dice.rollModes,
-            showDC: (game.system.id === 'pf2e'),
+            showDC: (game.system.id === 'pf2e') ? true : false,
             abilityModifiers,
         };
     }
 
     render(force, context={}) {
+        // Only re-render if needed
         const {action, data} = context;
         if (action && !["create", "update", "delete"].includes(action)) return;
         if (action === "update" && !data.some(d => "character" in d)) return;
@@ -101,7 +118,7 @@ class LMRTFYRequestor extends FormApplication {
     activateListeners(html) {
         super.activateListeners(html);
         
-        // V13 FIX: Ensure html is wrapped in jQuery
+        // V13: Ensure html is wrapped
         html = $(html);
 
         html.find(".select-all").click((event) => this.setActorSelection(event, true));
@@ -123,20 +140,21 @@ class LMRTFYRequestor extends FormApplication {
         this.element.find(".lmrtfy-actor input").prop("checked", enabled)
     }
 
+    // From _onHoverMacro
     _onHoverActor(event) {
         event.preventDefault();
         const div = event.currentTarget;
 
+        // Remove any existing tooltip
         const tooltip = div.querySelector(".tooltip");
         if (tooltip) div.removeChild(tooltip);
 
+        // Handle hover-in
         if (event.type === "mouseenter") {
             const userId = this.element.find("select[name=user]").val();
             const actorId = div.dataset.id;
             const actor = game.actors.get(actorId);
             if (!actor) return;
-            
-            // V13 FIX: Use .contents
             const gameUsers = game.users.contents;
             const user = userId === "character" ? gameUsers.find(u => u.character && u.character.id === actor.id) : null;
             const tooltip = document.createElement("SPAN");
@@ -149,17 +167,15 @@ class LMRTFYRequestor extends FormApplication {
     _getUserActorIds(userId) {
         let actors = [];
         if (userId === "character") {
-            // V13 FIX: Use .contents
             const gameUsers = game.users.contents;
             actors = gameUsers.map(u => u.character?.id).filter(a => a)
         } else if (userId === "tokens") {
-            // V13 FIX: Safe access to controlled tokens
-            actors = Array.from(new Set(canvas.tokens.controlled.map(t => t.actor?.id))).filter(a => a);
+            actors = Array.from(new Set(canvas.tokens.controlled.map(t => t.actor.id))).filter(a => a);
         } else {
             const user = game.users.get(userId);
             if (user) {
-                // V13 FIX: Use .contents and testUserPermission (permission property is deprecated)
                 const gameActors = game.actors.contents;
+                // V13 Fix: testUserPermission
                 actors = gameActors.filter(a => a.testUserPermission(user, "OWNER")).map(a => a.id)
             }
         }
@@ -181,37 +197,44 @@ class LMRTFYRequestor extends FormApplication {
     diceLeftClick(event) {
         this.selectedDice.push(event?.currentTarget?.dataset?.value);
         this.diceFormula = this.convertSelectedDiceToFormula();
+
         this.combineFormula();
     }
 
     diceRightClick(event) {
         const index = this.selectedDice.indexOf(event?.currentTarget?.dataset?.value);
+
         if (index > -1) {
             this.selectedDice.splice(index, 1);
         }
         this.diceFormula = this.convertSelectedDiceToFormula();
+
         this.combineFormula();
     }
 
     bonusClick(event) {
         let bonus = event?.currentTarget?.dataset?.value;
         let newBonus = +(this.bonusFormula.trim().replace(' ', '')) + +bonus;
+        
         if (newBonus === 0) {
             this.bonusFormula = '';
         } else {
             this.bonusFormula = ((newBonus > 0) ? ' + ' : ' - ') + Math.abs(newBonus).toString();
         }
+
         this.combineFormula();
     }
 
     modifierClick(event) {
         let checked = event?.currentTarget?.checked;
+
         if (checked) {
             this.selectedModifiers.push(event?.currentTarget?.dataset?.value)
         } else {
             const index = this.selectedModifiers.indexOf(event?.currentTarget?.dataset?.value);
             this.selectedModifiers.splice(index, 1);
         }
+        
         this.modifierFormula = this.convertSelectedModifiersToFormula();
         this.combineFormula();
     }
@@ -219,26 +242,41 @@ class LMRTFYRequestor extends FormApplication {
     convertSelectedDiceToFormula() {
         const occurences = (arr, val) => arr.reduce((a, v) => (v === val ? a + 1 : a), 0);
         let formula = '';
-        if (!this.selectedDice?.length) return '';
+
+        if (!this.selectedDice?.length) {
+            return '';
+        }
 
         for (let die of this.dice) {
             let count = occurences(this.selectedDice, die);
+
             if (count > 0) {
-                if (formula?.length) formula += ' + ';
+                if (formula?.length) {
+                    formula += ' + ';
+                }
+
                 formula += count + die;
             }            
         }
+
         return formula;        
     }
 
     convertSelectedModifiersToFormula() {
         let formula = '';
-        if (!this.selectedModifiers?.length) return '';
+
+        if (!this.selectedModifiers?.length) {
+            return '';
+        }
 
         for (let mod of this.selectedModifiers) {
-            if (formula?.length) formula += ' + ';
+            if (formula?.length) {
+                formula += ' + ';
+            }
+
             formula += `@${mod}`;
         }
+
         return formula;        
     }
 
@@ -246,11 +284,18 @@ class LMRTFYRequestor extends FormApplication {
         let customFormula = '';
         if (this.diceFormula?.length) {
             customFormula += this.diceFormula;
-            if (this.modifierFormula?.length) customFormula += ` + ${this.modifierFormula}`;
-            if (this.bonusFormula?.length) customFormula += this.bonusFormula;
+
+            if (this.modifierFormula?.length) {
+                customFormula += ` + ${this.modifierFormula}`;
+            }
+
+            if (this.bonusFormula?.length) {
+                customFormula += this.bonusFormula;
+            }            
         } else {
             this.element.find(".custom-formula").val('');
         }
+
         if (customFormula?.length) {
             this.element.find(".custom-formula").val(customFormula);
         }
@@ -263,6 +308,7 @@ class LMRTFYRequestor extends FormApplication {
         this.selectedDice = [];
         this.selectedModifiers = [];
         this.element.find(".lmrtfy-formula-ability").prop('checked', false);
+
         this.combineFormula();
     }
 
@@ -279,6 +325,7 @@ class LMRTFYRequestor extends FormApplication {
     }
 
     async _updateObject(event, formData) {
+        console.log("LMRTFY DEBUG | Submitting Request Form:", formData);
         const saveAsMacro = $(event.currentTarget).hasClass("lmrtfy-save-roll")
         const keys = Object.keys(formData)
         const user_actors = this._getUserActorIds(formData.user).map(id => `actor-${id}`);
@@ -288,15 +335,18 @@ class LMRTFYRequestor extends FormApplication {
             return acc;
         }, []);
         const abilities = keys.filter(k => k.startsWith("check-")).reduce((acc, k) => {
-            if (formData[k]) acc.push(k.slice(6));
+            if (formData[k])
+                acc.push(k.slice(6));
             return acc;
         }, []);
         const saves = keys.filter(k => k.startsWith("save-")).reduce((acc, k) => {
-            if (formData[k]) acc.push(k.slice(5));
+            if (formData[k])
+                acc.push(k.slice(5));
             return acc;
         }, []);
         const skills = keys.filter(k => k.startsWith("skill-")).reduce((acc, k) => {
-            if (formData[k]) acc.push(k.slice(6));
+            if (formData[k])
+                acc.push(k.slice(6));
             return acc;
         }, []);
         const tables = formData.table;
@@ -324,7 +374,10 @@ class LMRTFYRequestor extends FormApplication {
         let dc = undefined;
         if (game.system.id === 'pf2e') {
             if (Number.isInteger(parseInt(formData.dc))) {
-                dc = { value: parseInt(formData.dc), visibility: formData.visibility }
+                dc = {
+                    value: parseInt(formData.dc),
+                    visibility: formData.visibility
+                }
             }
         }
 
@@ -366,7 +419,6 @@ class LMRTFYRequestor extends FormApplication {
             if (socketData.user === 'selected') {
                 selectedSection = `// Handle selected user\n` +
                     `if (data.user === "selected") {\n` +
-                    `    // V13 Safety\n` +
                     `    if (!canvas.tokens?.controlled?.length) {\n` +
                     `      ui.notifications.warn(game.i18n.localize("LMRTFY.NoSelectedToken"));\n` +
                     `      return;\n` +
@@ -387,7 +439,6 @@ class LMRTFYRequestor extends FormApplication {
                 `const data = ${JSON.stringify(socketData, null, 2)};\n\n` +
                 `${selectedSection}` +
                 `game.socket.emit('module.lmrtfy', data);\n`;
-            
             const macro = await Macro.create({
                 name: "LMRTFY: " + (message || title),
                 type: "script",
@@ -398,8 +449,12 @@ class LMRTFYRequestor extends FormApplication {
             macro.sheet.render(true);
         } else {
             game.socket.emit('module.lmrtfy', socketData);
+            // Send to ourselves
             LMRTFY.onMessage(socketData);
             ui.notifications.info(game.i18n.localize("LMRTFY.SentNotification"))
         }
     }
 }
+
+// Export Global
+window.LMRTFYRequestor = LMRTFYRequestor;
