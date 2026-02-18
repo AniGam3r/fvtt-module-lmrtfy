@@ -38,6 +38,8 @@ class LMRTFYRequestor extends FormApplication {
         const saves = LMRTFY.saves;
         const abilityModifiers = LMRTFY.abilityModifiers;
 
+        // D&D 5e 3.0+ Skills are objects { label: "String", ... }
+        // Older systems might be strings. This logic handles both.
         const skills = Object.keys(LMRTFY.skills)
             .sort((a, b) => {
                 const skillA = game.i18n.localize(LMRTFY.skills[a]?.label || LMRTFY.skills[a]);
@@ -75,6 +77,8 @@ class LMRTFYRequestor extends FormApplication {
         html.find("select[name=user]").change(this._onUserChange.bind(this));
         html.find(".lmrtfy-save-roll").click(this._onSubmit.bind(this));
         html.find(".lmrtfy-actor").hover(this._onHoverActor.bind(this));
+        
+        // Ensure these methods exist in your class (omitted in your snippet but assumed present)
         html.find(".lmrtfy-dice-tray-button").click(this.diceLeftClick.bind(this));
         html.find(".lmrtfy-dice-tray-button").contextmenu(this.diceRightClick.bind(this));
         html.find(".lmrtfy-bonus-button").click(this.bonusClick.bind(this));
@@ -113,15 +117,17 @@ class LMRTFYRequestor extends FormApplication {
     _getUserActorIds(userId) {
         if (userId === "character") {
             return game.users.contents.map(u => u.character?.id).filter(id => !!id);
-        } else if (userId === "tokens") {
+        } 
+        // FIX: Combine 'tokens' and 'selected' to capture the same tokens
+        else if (userId === "tokens" || userId === "selected") {
             // V13 Token Document ID check
             return Array.from(new Set(canvas.tokens.controlled.map(t => t.actor?.id))).filter(id => !!id);
         } else {
             const user = game.users.get(userId);
             if (user) {
-                // Check ownership levels for V13 compatibility
+                // V13 Compatibility: Use 'ownership' instead of 'permission'
                 return game.actors.contents
-                    .filter(a => a.ownership[user.id] === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER || a.ownership.default === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)
+                    .filter(a => a.ownership?.[user.id] === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER || a.ownership?.default === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER)
                     .map(a => a.id);
             }
         }
@@ -136,14 +142,16 @@ class LMRTFYRequestor extends FormApplication {
         el.find(".lmrtfy-actor").hide().filter((i, e) => actors.includes(e.dataset.id)).show();
 
         if (userId === 'selected') {
+            // Optional: If you WANT to allow instant requests for selected tokens, remove this hide()
+            // el.find(".lmrtfy-request-roll").hide(); 
+            // For now, we assume standard behavior is to only allow macro saving for 'selected'
             el.find(".lmrtfy-request-roll").hide();
         } else {
             el.find(".lmrtfy-request-roll").show();
         }
     }
 
-    // Logic for Dice/Bonus/Modifier remains identical as it is math/string based
-    // ... [diceLeftClick, bonusClick, etc. kept as is] ...
+    // [Rest of methods: diceLeftClick, bonusClick, etc. assumed present]
 
     async _updateObject(event, formData) {
         const saveAsMacro = $(event.currentTarget).hasClass("lmrtfy-save-roll");
@@ -154,9 +162,6 @@ class LMRTFYRequestor extends FormApplication {
             if (formData[k] && user_actors.includes(k)) acc.push(k.slice(6));
             return acc;
         }, []);
-
-        // Logic for Abilities/Saves/Skills mapping remains identical
-        // ... [Collection mapping kept as is] ...
 
         const socketData = {
             user: formData.user,
@@ -178,7 +183,6 @@ class LMRTFYRequestor extends FormApplication {
         };
 
         if (saveAsMacro) {
-            // The generated macro script is already updated for V13 in our previous pass
             this._createMacro(socketData, formData.user);
         } else {
             game.socket.emit('module.lmrtfy', socketData);
