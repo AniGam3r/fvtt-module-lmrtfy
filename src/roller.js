@@ -35,7 +35,7 @@ class LMRTFYRoller extends Application {
         }
 
         this.hasMidi = game.modules.get("midi-qol")?.active;
-        // UPDATE: Use foundry.utils.isNewerVersion
+        // V13 FIX: Use foundry.utils.isNewerVersion
         this.midiUseNewRoller = foundry.utils.isNewerVersion(game.modules.get("midi-qol")?.version, "10.0.26");
 
         Handlebars.registerHelper('canFailAbilityChecks', function (name, ability) {
@@ -87,7 +87,7 @@ class LMRTFYRoller extends Application {
         options.height = "auto";
         options.classes = ["lmrtfy", "lmrtfy-roller"];
         if (game.settings.get('lmrtfy', 'enableParchmentTheme')) {
-            options.classes.push('lmrtfy-parchment');
+          options.classes.push('lmrtfy-parchment');
         }
         return options;
     }
@@ -95,7 +95,7 @@ class LMRTFYRoller extends Application {
     static requestAbilityChecks(actor, abilities, options={}) {
         if (!actor || !abilities) return;
         if (typeof(abilities) === "string") abilities = [abilities];
-        const data = mergeObject(options, {
+        const data = foundry.utils.mergeObject(options, {
             abilities: [],
             saves: [],
             skills: []
@@ -106,7 +106,7 @@ class LMRTFYRoller extends Application {
     static requestSkillChecks(actor, skills, options={}) {
         if (!actor || !skills) return;
         if (typeof(skills) === "string") skills = [skills];
-        const data = mergeObject(options, {
+        const data = foundry.utils.mergeObject(options, {
             abilities: [],
             saves: [],
             skills: []
@@ -117,7 +117,7 @@ class LMRTFYRoller extends Application {
     static requestSavingThrows(actor, saves, options={}) {
         if (!actor || !saves) return;
         if (typeof(saves) === "string") saves = [saves];
-        const data = mergeObject(options, {
+        const data = foundry.utils.mergeObject(options, {
             abilities: [],
             saves: [],
             skills: []
@@ -154,11 +154,14 @@ class LMRTFYRoller extends Application {
         let skills = {}
         this.abilities.forEach(a => abilities[a] = LMRTFY.abilities[a])
         this.saves.forEach(a => saves[a] = LMRTFY.saves[a])
+        
+        // V13/5e FIX: Safe sorting for Skill Objects
         this.skills
             .sort((a, b) => {
                 const skillA = (LMRTFY.skills[a]?.label) ? LMRTFY.skills[a].label : LMRTFY.skills[a];
                 const skillB = (LMRTFY.skills[b]?.label) ? LMRTFY.skills[b].label : LMRTFY.skills[b];
-                return game.i18n.localize(skillA).localeCompare(skillB)
+                // Added missing RETURN
+                return game.i18n.localize(skillA).localeCompare(game.i18n.localize(skillB));
             })
             .forEach(s => {
                 const skill = (LMRTFY.skills[s]?.label) ? LMRTFY.skills[s].label : LMRTFY.skills[s];
@@ -185,29 +188,29 @@ class LMRTFYRoller extends Application {
 
     activateListeners(html) {
         super.activateListeners(html);
-        this.element.find(".lmrtfy-ability-check").click(this._onAbilityCheck.bind(this))
-        this.element.find(".lmrtfy-ability-save").click(this._onAbilitySave.bind(this))
-        this.element.find(".lmrtfy-skill-check").click(this._onSkillCheck.bind(this))
-        this.element.find(".lmrtfy-custom-formula").click(this._onCustomFormula.bind(this))
-        this.element.find(".lmrtfy-roll-table").click(this._onRollTable.bind(this));
+        html.find(".lmrtfy-ability-check").click(this._onAbilityCheck.bind(this))
+        html.find(".lmrtfy-ability-save").click(this._onAbilitySave.bind(this))
+        html.find(".lmrtfy-skill-check").click(this._onSkillCheck.bind(this))
+        html.find(".lmrtfy-custom-formula").click(this._onCustomFormula.bind(this))
+        html.find(".lmrtfy-roll-table").click(this._onRollTable.bind(this));
         if(LMRTFY.specialRolls['initiative']) {
-            this.element.find(".lmrtfy-initiative").click(this._onInitiative.bind(this))
+            html.find(".lmrtfy-initiative").click(this._onInitiative.bind(this))
         }
         if(LMRTFY.specialRolls['deathsave']) {
-            this.element.find(".lmrtfy-death-save").click(this._onDeathSave.bind(this))
+            html.find(".lmrtfy-death-save").click(this._onDeathSave.bind(this))
         }
         if(LMRTFY.specialRolls['perception']) {
-            this.element.find(".lmrtfy-perception").click(this._onPerception.bind(this))
+            html.find(".lmrtfy-perception").click(this._onPerception.bind(this))
         }
 
-        this.element.find(".enable-lmrtfy-ability-check-fail").click(this._onToggleFailAbilityRoll.bind(this));
-        this.element.find(".lmrtfy-ability-check-fail").click(this._onFailAbilityCheck.bind(this));        
+        html.find(".enable-lmrtfy-ability-check-fail").click(this._onToggleFailAbilityRoll.bind(this));
+        html.find(".lmrtfy-ability-check-fail").click(this._onFailAbilityCheck.bind(this));        
         
-        this.element.find(".enable-lmrtfy-ability-save-fail").click(this._onToggleFailSaveRoll.bind(this));
-        this.element.find(".lmrtfy-ability-save-fail").click(this._onFailAbilitySave.bind(this));    
+        html.find(".enable-lmrtfy-ability-save-fail").click(this._onToggleFailSaveRoll.bind(this));
+        html.find(".lmrtfy-ability-save-fail").click(this._onFailAbilitySave.bind(this));    
 
-        this.element.find(".enable-lmrtfy-skill-check-fail").click(this._onToggleFailSkillRoll.bind(this));
-        this.element.find(".lmrtfy-skill-check-fail").click(this._onFailSkillCheck.bind(this));    
+        html.find(".enable-lmrtfy-skill-check-fail").click(this._onToggleFailSkillRoll.bind(this));
+        html.find(".lmrtfy-skill-check-fail").click(this._onFailSkillCheck.bind(this));    
     }
 
     _checkClose() {
@@ -286,23 +289,23 @@ class LMRTFYRoller extends Application {
 
             // system specific roll handling
             switch (game.system.id) {
-                // UPDATE: D&D 5e Specific Handler for v3.0+ / V13
+                // V13/5e FIX: Specific handler for D&D 5e v3.0+ syntax
                 case "dnd5e": {
-                    const key = args[0]; // e.g., 'str' or 'prc'
-                    
-                    // Create the configuration object expected by 5e 5.x
-                    let rollConfig = mergeObject(options, {
-                        chatMessage: false, // Prevent double rolling (Midi-QOL handles it)
-                        fastForward: true   // Skip system dialog (LMRTFY already asked)
+                    const key = args[0]; // The Ability or Skill ID
+                    let rollConfig = foundry.utils.mergeObject(options, {
+                        fastForward: true, // Skip dialog
+                        chatMessage: true  // Allow system to create the message
                     });
 
                     // Assign the key to the correct property based on method
                     if (rollMethod === 'rollSkill') {
                         rollConfig.skill = key;
                     } else {
+                        // Ability Test or Save
                         rollConfig.ability = key;
                     }
 
+                    // Execute the roll with the new Object syntax
                     await actor[rollMethod](rollConfig);
                     break;
                 }
@@ -321,7 +324,7 @@ class LMRTFYRoller extends Application {
                             break;
 
                         case this.pf2eRollFor.SKILL:
-                            // UPDATE: actor.system.skills (was actor.data.data.skills)
+                            // V13 FIX: actor.data.data -> actor.system
                             const skill = actor.system.skills[args[0]];
                             if (!skill) continue;
 
@@ -386,7 +389,6 @@ class LMRTFYRoller extends Application {
                 }
 
                 default: {
-                    // Fallback for other systems using old syntax
                     await actor[rollMethod].call(actor, ...args, options);
                 }
             }
@@ -404,7 +406,7 @@ class LMRTFYRoller extends Application {
         game.settings.set("core", "rollMode", this.mode || CONST.DICE_ROLL_MODES);
 
         for (let actor of this.actors) {
-            // UPDATE: actor.system (was actor.data.data)
+            // V13 FIX: actor.data.data -> actor.system
             const initiative = actor.system.attributes.initiative;
             const rollNames = ['all', 'initiative'];
             if (initiative.ability === 'perception') {
@@ -496,7 +498,7 @@ class LMRTFYRoller extends Application {
             );
 
             rollMessages.push(
-                mergeObject(
+                foundry.utils.mergeObject(
                     rollMessageData,
                     {
                         speaker: {
@@ -700,8 +702,8 @@ class LMRTFYRoller extends Application {
         switch (game.system.id) {
             case "dnd5e":
                 for (let actor of this.actors) {
-                    // UPDATE: Fixed D&D5e Death Save double roll / object syntax
-                    actor.rollDeathSave({ event, chatMessage: false });
+                    // V13/5e FIX: Use object syntax to match other roll methods
+                    actor.rollDeathSave({ event, chatMessage: true });
                 }
                 break
             case "pf2e":
