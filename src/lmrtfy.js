@@ -366,6 +366,7 @@ class LMRTFY {
         } else if (data.user === "tokens") {
             actors = canvas.tokens.controlled.map(t => t.actor).filter(a => data.actors.includes(a.id));
         } else {
+            // UPDATED: Sync lookup is safer in V13 loops
             actors = data.actors.map(aid => LMRTFY.fromUuid(aid));
         }
         actors = actors.filter(a => a);
@@ -413,7 +414,8 @@ class LMRTFY {
     static buildAbilityModifier(actor, ability) {
         const modifiers = [];
 
-        const mod = game.pf2e.AbilityModifier.fromScore(ability, actor.data.data.abilities[ability].value);
+        // UPDATED: actor.data.data -> actor.system for V11+ compatibility
+        const mod = game.pf2e.AbilityModifier.fromScore(ability, actor.system.abilities[ability].value);
         modifiers.push(mod);
 
         [`${ability}-based`, 'ability-check', 'all'].forEach((key) => {
@@ -423,43 +425,56 @@ class LMRTFY {
         return new game.pf2e.StatisticModifier(`${game.i18n.localize('LMRTFY.AbilityCheck')} ${game.i18n.localize(mod.label)}`, modifiers);
     }
 
-    static async hideBlind(app, html, msg) {
-        if (msg.message.flags && msg.message.flags.lmrtfy) {
-            if (msg.message.flags.lmrtfy.blind && !game.user.isGM) {
-                msg.content = '<p>??</p>';
+    // UPDATED: Argument signature for V13 (Document, HTML, Data)
+    static async hideBlind(message, html, data) {
+        // UPDATED: Check message.flags (Document) instead of message data
+        if (message.flags && message.flags.lmrtfy) {
+            if (message.flags.lmrtfy.blind && !game.user.isGM) {
+                // We modify the content variable for logic, but we must update the HTML directly
+                let content = '<p>??</p>';
 
                 let idx = html[0].innerHTML.indexOf('<div class="message-content">');
                 html[0].innerHTML = html[0].innerHTML.substring(0, idx);
-                html[0].innerHTML += `<div class="message-content">${msg.content}</div>`;
+                html[0].innerHTML += `<div class="message-content">${content}</div>`;
             }
         }
     }
 
     static fromUuid(uuid) {
+        // UPDATED: Native fromUuidSync is robust in V11+ and handles sync return for Compendium/World/Embedded
+        if (typeof fromUuidSync === "function") {
+            return fromUuidSync(uuid);
+        }
+
+        // Fallback Logic (Updated for V13 Compatibility)
         let parts = uuid.split(".");
         let doc;
 
         if (parts.length === 1) return game.actors.get(uuid);
         // Compendium Documents
         if (parts[0] === "Compendium") {
-            return undefined;
+            return undefined; // Async loading required for Compendium, can't map synchronously in onMessage without major refactor
         }
 
         // World Documents
         else {
             const [docName, docId] = parts.slice(0, 2);
             parts = parts.slice(2);
-            const collection = CONFIG[docName].collection.instance;
-            doc = collection.get(docId);
+            // UPDATED: CONFIG[].collection.instance is deprecated. Use game.collections or CONFIG[].collection directly.
+            const collection = game.collections.get(docName) || CONFIG[docName]?.collection;
+            doc = collection?.get(docId);
         }
 
         // Embedded Documents
         while (parts.length > 1) {
             const [embeddedName, embeddedId] = parts.slice(0, 2);
-            doc = doc.getEmbeddedDocument(embeddedName, embeddedId);
+            // UPDATED: Safety check
+            if (doc && doc.getEmbeddedDocument) {
+                doc = doc.getEmbeddedDocument(embeddedName, embeddedId);
+            }
             parts = parts.slice(2);
         }
-        if (doc.actor) doc = doc.actor;
+        if (doc && doc.actor) doc = doc.actor;
         return doc || undefined;
     }
 }
