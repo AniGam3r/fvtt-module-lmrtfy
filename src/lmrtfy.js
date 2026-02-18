@@ -38,35 +38,22 @@ class LMRTFY {
             scope: 'world',
             config: showFailButtonSetting,
             type: Boolean,
-            default: showFailButtonSetting, // if it's DnD 5e default to true
+            default: showFailButtonSetting,
             onChange: () => window.location.reload()
         });
 
         Handlebars.registerHelper('lmrtfy-controlledToken', function (actor) {
             const actorsControlledToken = canvas.tokens?.controlled.find(t => t.actor?.id === actor.id);
-            if (actorsControlledToken) {
-                return true;
-            } else {
-                return false;
-            }
+            return !!actorsControlledToken;
         });
 
         Handlebars.registerHelper('lmrtfy-showTokenImage', function (actor) {
-            if (game.settings.get('lmrtfy', 'useTokenImageOnRequester')) {
-                return true;
-            } else {
-                return false;
-            }
+            return game.settings.get('lmrtfy', 'useTokenImageOnRequester');
         });
 
         Handlebars.registerHelper('lmrtfy-isdemonlord', function (actor) {
-            if (game.system.id === 'demonlord') {
-                return true;
-            } else {
-                return false;
-            }
+            return game.system.id === 'demonlord';
         });
-
     }
 
     static ready() {
@@ -80,7 +67,14 @@ class LMRTFY {
                 LMRTFY.abilityRollMethod = 'rollAbilityTest';
                 LMRTFY.skillRollMethod = 'rollSkill';
                 LMRTFY.abilities = LMRTFY.create5eAbilities();
-                LMRTFY.skills = CONFIG.DND5E.skills;
+                
+                // V13/5e 3.0+ FIX: Flatten the Skills object to ensure it is just Key: Label
+                // This prevents the "key.split is not a function" Handlebars error
+                LMRTFY.skills = {};
+                for (const [key, value] of Object.entries(CONFIG.DND5E.skills)) {
+                    LMRTFY.skills[key] = value.label || value; 
+                }
+
                 LMRTFY.saves = LMRTFY.create5eAbilities();
                 LMRTFY.normalRollEvent = { shiftKey: true, altKey: false, ctrlKey: false };
                 LMRTFY.advantageRollEvent = { shiftKey: false, altKey: true, ctrlKey: false };
@@ -106,7 +100,7 @@ class LMRTFY {
                 LMRTFY.abilityAbbreviations = CONFIG.PF1.abilitiesShort;
                 LMRTFY.modIdentifier = 'mod';
                 LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
-                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons'); // defaulted to false due to system
+                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons');
                 break;
 
             case 'pf2e':
@@ -123,7 +117,7 @@ class LMRTFY {
                 LMRTFY.abilityAbbreviations = CONFIG.PF2E.abilities;
                 LMRTFY.modIdentifier = 'mod';
                 LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
-                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons'); // defaulted to false due to system
+                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons');
                 break;
 
             case 'D35E':
@@ -140,7 +134,7 @@ class LMRTFY {
                 LMRTFY.abilityAbbreviations = CONFIG.D35E.abilityAbbreviations;
                 LMRTFY.modIdentifier = 'mod';
                 LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
-                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons'); // defaulted to false due to system
+                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons');
                 break;
 
             case 'cof':
@@ -156,7 +150,7 @@ class LMRTFY {
                 LMRTFY.abilityAbbreviations = CONFIG.COF.statAbbreviations;
                 LMRTFY.modIdentifier = 'mod';
                 LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
-                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons'); // defaulted to false due to system
+                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons');
                 break;
 
             case 'coc':
@@ -172,11 +166,11 @@ class LMRTFY {
                 LMRTFY.abilityAbbreviations = CONFIG.COC.statAbbreviations;
                 LMRTFY.modIdentifier = 'mod';
                 LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
-                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons'); // defaulted to false due to system
+                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons');
             break;
 
             case 'demonlord':
-                // UPDATE: Changed duplicate to foundry.utils.duplicate
+                // V13: Updated duplicate to foundry.utils.duplicate
                 const abilities = foundry.utils.duplicate(CONFIG.DL.attributes);
                 delete abilities.defense;
                 LMRTFY.saveRollMethod = 'rollChallenge';
@@ -192,7 +186,7 @@ class LMRTFY {
                 LMRTFY.abilityAbbreviations = abilities;
                 LMRTFY.modIdentifier = 'modifier';
                 LMRTFY.abilityModifiers = {};
-                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons'); // defaulted to false due to system
+                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons');
                 break;
 
             case 'ose':
@@ -211,7 +205,7 @@ class LMRTFY {
                 LMRTFY.specialRolls = {};
                 LMRTFY.modIdentifier = 'modifier';
                 LMRTFY.abilityModifiers = {};
-                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons'); // defaulted to false due to system
+                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons');
                 break;
             
             case 'foundry-chromatic-dungeons':
@@ -223,7 +217,7 @@ class LMRTFY {
                 LMRTFY.skills = {};
                 LMRTFY.saves = CONFIG.CHROMATIC.saves;
                 LMRTFY.specialRolls = {};
-                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons'); // defaulted to false due to system
+                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons');
                 break;
                 
             case 'degenesis':
@@ -237,7 +231,7 @@ class LMRTFY {
                 LMRTFY.skills = skills;
 
                 LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
-                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons'); // defaulted to false due to system
+                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons');
                 break;
                 
             case 'ffd20':
@@ -252,63 +246,38 @@ class LMRTFY {
                 LMRTFY.abilityAbbreviations = CONFIG.abilitiesShort;
                 LMRTFY.modIdentifier = 'mod';
                 LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
-                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons'); // defaulted to false due to system
+                LMRTFY.canFailChecks = game.settings.get('lmrtfy', 'showFailButtons');
                 break;
 
             case 'dcc':
-                // which method on the Actor class can roll the appropriate check?
                 LMRTFY.saveRollMethod = 'rollSavingThrow';
                 LMRTFY.abilityRollMethod = 'rollAbilityCheck';
                 LMRTFY.skillRollMethod = 'rollSkillCheck';
-
-                // where are the abilities, skills, and saves defined?
                 LMRTFY.abilities = CONFIG.DCC.abilities;
                 LMRTFY.skills = {};
                 LMRTFY.saves = CONFIG.DCC.saves;
-
-                // is there any special keybinding the system might expect for these kinds of rolls
                 LMRTFY.normalRollEvent = { shiftKey: true, altKey: false, ctrlKey: false };
                 LMRTFY.advantageRollEvent = { shiftKey: false, altKey: false, ctrlKey: true };
-
-                // does your system support initiative rolls or deathsaves (as dnd5e understands them)?
                 LMRTFY.specialRolls = { 'initiative': true, 'deathsave': false, 'perception': false };
-
-                // does you system use ability modifiers. this is for the dice and modifier buttons under custom formula
                 LMRTFY.abilityAbbreviations = CONFIG.DCC.abilities;
                 LMRTFY.modIdentifier = 'mod';
                 LMRTFY.abilityModifiers = LMRTFY.parseAbilityModifiers();
                 break;
 
             default:
-                console.error('LMRFTY | Unsupported system detected');
+                console.error('LMRTFY | Unsupported system detected');
 
         }
 
-        // overwrite for the dnd5e system, unsure if other 5e systems does this too
         if (game.system.id === "dnd5e") {
             LMRTFY.normalRollEvent = { fastForward: true };
             LMRTFY.advantageRollEvent = { advantage: true, fastForward: true };
             LMRTFY.disadvantageRollEvent = { disadvantage: true, fastForward: true };
         }
 
-        LMRTFY.d20Svg = '<svg class="lmrtfy-dice-svg-normal" version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"' +
-            'viewBox="0 0 64 64" style="enable-background:new 0 0 64 64;" xml:space="preserve">' +
-            '<g transform="translate(-246.69456,-375.66745)">' +
-                '<path d="M278.2,382.1c-0.1,0-0.2,0-0.3,0.1L264.8,398c-0.2,0.3-0.2,0.3,0.1,0.3l26.4-0.1c0.4,0,0.4,0,0.1-0.3l-13-15.8' +
-                'C278.4,382.1,278.3,382.1,278.2,382.1L278.2,382.1z M280.7,383.5l11.9,14.5c0.2,0.2,0.2,0.2,0.5,0.1l6.3-2.9' +
-                'c0.4-0.2,0.4-0.2,0.1-0.4L280.7,383.5z M275.2,384c0,0-0.1,0.1-0.3,0.2l-17.3,11.4l5.4,2.5c0.3,0.1,0.4,0.1,0.5-0.1l11.4-13.6' +
-                'C275.1,384.1,275.2,384,275.2,384L275.2,384z M300.3,395.8c-0.1,0-0.1,0-0.3,0.1l-6.4,2.9c-0.2,0.1-0.2,0.2-0.1,0.4l7.5,19' +
-                'l-0.5-22.1C300.4,395.9,300.4,395.8,300.3,395.8L300.3,395.8z M257.1,396.4l-0.7,21.5l6.3-18.6c0.1-0.3,0.1-0.3-0.1-0.4' +
-                'L257.1,396.4L257.1,396.4z M291.6,399.2l-27,0.1c-0.4,0-0.4,0-0.2,0.3l13.7,23.1c0.2,0.4,0.2,0.3,0.4,0l13.2-23.2' +
-                'C291.9,399.3,291.9,399.2,291.6,399.2L291.6,399.2z M292.7,399.8c0,0-0.1,0.1-0.1,0.2l-13.3,23.3c-0.1,0.2-0.2,0.3,0.2,0.3' +
-                'l21.1-2.9c0.3-0.1,0.3-0.2,0.2-0.5l-7.9-20.2C292.7,399.9,292.7,399.8,292.7,399.8L292.7,399.8z M263.6,400c0,0,0,0.1-0.1,0.3' +
-                'l-6.7,19.8c-0.1,0.4-0.1,0.6,0.3,0.7l20.1,2.9c0.4,0.1,0.3-0.1,0.2-0.3l-13.7-23.1C263.6,400,263.6,400,263.6,400L263.6,400z' +
-                'M258.3,421.9l19.7,11.2c0.3,0.2,0.3,0.1,0.3-0.2l-0.4-7.9c0-0.3,0-0.4-0.3-0.4L258.3,421.9L258.3,421.9z M299.1,421.9l-20,2.8' +
-                'c-0.3,0-0.2,0.2-0.2,0.4l0.4,8c0,0.2,0,0.3,0.3,0.2L299.1,421.9z"/>' +
-            '</g>' +
-        '</svg>';
+        LMRTFY.d20Svg = '<svg class="lmrtfy-dice-svg-normal" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg"><path d="M278.2,382.1c-0.1,0-0.2,0-0.3,0.1L264.8,398c-0.2,0.3-0.2,0.3,0.1,0.3l26.4-0.1c0.4,0,0.4,0,0.1-0.3l-13-15.8C278.4,382.1,278.3,382.1,278.2,382.1L278.2,382.1z M280.7,383.5l11.9,14.5c0.2,0.2,0.2,0.2,0.5,0.1l6.3-2.9c0.4-0.2,0.4-0.2,0.1-0.4L280.7,383.5z M275.2,384c0,0-0.1,0.1-0.3,0.2l-17.3,11.4l5.4,2.5c0.3,0.1,0.4,0.1,0.5-0.1l11.4-13.6C275.1,384.1,275.2,384,275.2,384L275.2,384z M300.3,395.8c-0.1,0-0.1,0-0.3,0.1l-6.4,2.9c-0.2,0.1-0.2,0.2-0.1,0.4l7.5,19l-0.5-22.1C300.4,395.9,300.4,395.8,300.3,395.8L300.3,395.8z M257.1,396.4l-0.7,21.5l6.3-18.6c0.1-0.3,0.1-0.3-0.1-0.4L257.1,396.4L257.1,396.4z M291.6,399.2l-27,0.1c-0.4,0-0.4,0-0.2,0.3l13.7,23.1c0.2,0.4,0.2,0.3,0.4,0l13.2-23.2C291.9,399.3,291.9,399.2,291.6,399.2L291.6,399.2z M292.7,399.8c0,0-0.1,0.1-0.1,0.2l-13.3,23.3c-0.1,0.2-0.2,0.3,0.2,0.3l21.1-2.9c0.3-0.1,0.3-0.2,0.2-0.5l-7.9-20.2C292.7,399.9,292.7,399.8,292.7,399.8L292.7,399.8z M263.6,400c0,0,0,0.1-0.1,0.3l-6.7,19.8c-0.1,0.4-0.1,0.6,0.3,0.7l20.1,2.9c0.4,0.1,0.3-0.1,0.2-0.3l-13.7-23.1C263.6,400,263.6,400,263.6,400L263.6,400zM258.3,421.9l19.7,11.2c0.3,0.2,0.3,0.1,0.3-0.2l-0.4-7.9c0-0.3,0-0.4-0.3-0.4L258.3,421.9L258.3,421.9z M299.1,421.9l-20,2.8c-0.3,0-0.2,0.2-0.2,0.4l0.4,8c0,0.2,0,0.3,0.3,0.2L299.1,421.9z" transform="translate(-246.69456,-375.66745)"/></svg>';
 
-        // for now we don't allow can fails until midi-qol has update patching.js
+        // V13: Updated isNewerVersion to foundry.utils.isNewerVersion
         if (game.modules.get("midi-qol")?.active && !foundry.utils.isNewerVersion(game.modules.get("midi-qol")?.version, "10.0.26")) {
             LMRTFY.canFailChecks = false;
         }
@@ -329,11 +298,7 @@ class LMRTFY {
             }
         }
 
-        if (
-            game.system.id === 'dnd5eJP' ||
-            game.system.id === 'dnd5e' ||
-            game.system.id === 'sw5e'
-        ) {
+        if (['dnd5eJP', 'dnd5e', 'sw5e'].includes(game.system.id)) {
             abilityMods['attributes.prof'] = 'DND5E.Proficiency';
         }
 
@@ -342,21 +307,17 @@ class LMRTFY {
     
     static create5eAbilities() {
         let abbr = {};
-        
         for (let key in CONFIG.DND5E.abilities) { 
-            // UPDATE: Safety check for D&D5e 3.0+ where abbreviations might be structured differently
+            // V13/5e Fix: Use the System ID (key) as the index, not the abbreviation.
+            // This ensures data-ability="str" matches the system data.
             let configObj = CONFIG.DND5E.abilities[key];
-            let abb = game.i18n.localize(configObj.abbreviation || key); 
-            
-            let upperFirstLetter = abb.charAt(0).toUpperCase() + abb.slice(1);
-            abbr[`${abb}`] = `DND5E.Ability${upperFirstLetter}`;
+            let label = configObj.label || key; 
+            abbr[key] = label;
         }
-
         return abbr;
     }
 
     static onMessage(data) {
-        //console.log("LMRTF got message: ", data)
         if (data.user === "character" &&
             (!game.user.character || !data.actors.includes(game.user.character.id))) {
             return;
@@ -374,7 +335,6 @@ class LMRTFY {
         }
         actors = actors.filter(a => a);
         
-        // remove player characters from GM's requests
         if (game.user.isGM) {
             actors = actors.filter(a => !a.hasPlayerOwner);
         }        
@@ -394,14 +354,15 @@ class LMRTFY {
             LMRTFY.requestor.options.classes.push("lmrtfy-parchment")
         else
             LMRTFY.requestor.options.classes = LMRTFY.requestor.options.classes.filter(c => c !== "lmrtfy-parchment")
-        // Resize to fit the new theme
         if (LMRTFY.requestor.element.length)
             LMRTFY.requestor.setPosition({ width: "auto", height: "auto" })
     }
 
     static getSceneControlButtons(buttons) {
+        // V13 Fix: Safety check to ensure buttons exists before finding
+        if (!buttons || !Array.isArray(buttons)) return;
+        
         let tokenButton = buttons.find(b => b.name == "token")
-
         if (tokenButton) {
             tokenButton.tools.push({
                 name: "request-roll",
@@ -417,7 +378,7 @@ class LMRTFY {
     static buildAbilityModifier(actor, ability) {
         const modifiers = [];
 
-        // UPDATE: 'actor.data.data' is deprecated. Changed to 'actor.system'
+        // V13 Fix: actor.data.data -> actor.system
         const mod = game.pf2e.AbilityModifier.fromScore(ability, actor.system.abilities[ability].value);
         modifiers.push(mod);
 
@@ -445,22 +406,16 @@ class LMRTFY {
         let doc;
 
         if (parts.length === 1) return game.actors.get(uuid);
-        // Compendium Documents
         if (parts[0] === "Compendium") {
             return undefined;
-        }
-
-        // World Documents
-        else {
+        } else {
             const [docName, docId] = parts.slice(0, 2);
             parts = parts.slice(2);
-            // UPDATE: CONFIG[docName].collection.instance is Deprecated/Broken. 
-            // Switched to game.collections.get(docName).
+            // V13 Fix: CONFIG.collection.instance is deprecated. Use game.collections.
             const collection = game.collections.get(docName);
             doc = collection.get(docId);
         }
 
-        // Embedded Documents
         while (parts.length > 1) {
             const [embeddedName, embeddedId] = parts.slice(0, 2);
             doc = doc.getEmbeddedDocument(embeddedName, embeddedId);
@@ -472,6 +427,8 @@ class LMRTFY {
 }
 
 globalThis.LMRTFYRequestRoll = LMRTFY.requestRoll;
+// EXPOSE TO WINDOW for debugging and global access
+window.LMRTFY = LMRTFY;
 
 Hooks.once('init', LMRTFY.init);
 Hooks.on('ready', LMRTFY.ready);
