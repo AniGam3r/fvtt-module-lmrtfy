@@ -41,7 +41,7 @@ class LMRTFYRoller extends Application {
             if (LMRTFY.canFailChecks) {
                 return `<div>` +
                         `<button type="button" class="lmrtfy-ability-check-fail" data-ability="${ability}" disabled>${game.i18n.localize('LMRTFY.AbilityCheckFail')} ${game.i18n.localize(name)}</button>` +
-                        `<div class="lmrtfy-dice-tray-button enable-lmrtfy-ability-check-fail" data-ability="${ability}" title="${game.i18n.localize('LMRTFY.EnableChooseFail')}">` +            
+                        `<div class="lmrtfy-dice-tray-button enable-lmrtfy-ability-check-fail" data-ability="${ability}" title="${game.i18n.localize('LMRTFY.EnableChooseFail')}">` +             
                             `${LMRTFY.d20Svg}` +
                         `</div>` +
                     `</div>`;
@@ -54,7 +54,7 @@ class LMRTFYRoller extends Application {
             if (LMRTFY.canFailChecks) {
                 return `<div>` +
                         `<button type="button" class="lmrtfy-ability-save-fail" data-ability="${ability}" disabled>${game.i18n.localize('LMRTFY.SavingThrowFail')} ${game.i18n.localize(name)}</button>` +
-                        `<div class="lmrtfy-dice-tray-button enable-lmrtfy-ability-save-fail" data-ability="${ability}" title="${game.i18n.localize('LMRTFY.EnableChooseFail')}">` +            
+                        `<div class="lmrtfy-dice-tray-button enable-lmrtfy-ability-save-fail" data-ability="${ability}" title="${game.i18n.localize('LMRTFY.EnableChooseFail')}">` +             
                             `${LMRTFY.d20Svg}` +
                         `</div>` +
                     `</div>`;
@@ -67,7 +67,7 @@ class LMRTFYRoller extends Application {
             if (LMRTFY.canFailChecks) {
                 return `<div>` +
                         `<button type="button" class="lmrtfy-skill-check-fail" data-skill="${skill}" disabled>${game.i18n.localize('LMRTFY.SkillCheckFail')} ${game.i18n.localize(name)}</button>` +
-                        `<div class="lmrtfy-dice-tray-button enable-lmrtfy-skill-check-fail" data-skill="${skill}" title="${game.i18n.localize('LMRTFY.EnableChooseFail')}">` +            
+                        `<div class="lmrtfy-dice-tray-button enable-lmrtfy-skill-check-fail" data-skill="${skill}" title="${game.i18n.localize('LMRTFY.EnableChooseFail')}">` +             
                             `${LMRTFY.d20Svg}` +
                         `</div>` +
                     `</div>`;
@@ -235,7 +235,7 @@ class LMRTFYRoller extends Application {
             if (event.currentTarget.className.indexOf('fail') > 0) {
                 oppositeSelector = event.currentTarget.className.substring(0, event.currentTarget.className.indexOf('fail') - 1);
             } else {
-                oppositeSelector = `${event.currentTarget.className}-fail`;            
+                oppositeSelector = `${event.currentTarget.className}-fail`;             
             }
 
             const enableButton = document.querySelector(`.enable-${buttonSelector}${dataSelector}`);
@@ -300,6 +300,7 @@ class LMRTFYRoller extends Application {
 
                         case this.pf2eRollFor.SKILL:
                             // system specific roll handling
+                            // UPDATED: actor.data.data -> actor.system
                             const skill = actor.system.skills[args[0]];
                             // roll lore skills only for actors who have them ...
                             if (!skill) continue;
@@ -319,7 +320,8 @@ class LMRTFYRoller extends Application {
 
                 case "foundry-chromatic-dungeons": {
                     const key = args[0];
-                    const {attributes, attributeMods, saves} = actor.system.data;
+                    // UPDATED: actor.system.data -> actor.system (Standard DataModel)
+                    const {attributes, attributeMods, saves} = actor.system;
                     let label, formula, target;
 
                     switch (rollMethod) {
@@ -360,8 +362,8 @@ class LMRTFYRoller extends Application {
                       case 2:
                         await actor[rollMethod].call(actor, ...args, options);
                         break;
-                    }			
-					break;
+                    }           
+                    break;
                 }
 
                 default: {
@@ -382,13 +384,15 @@ class LMRTFYRoller extends Application {
         game.settings.set("core", "rollMode", this.mode || CONST.DICE_ROLL_MODES);
 
         for (let actor of this.actors) {
-            const initiative = actor.data.data.attributes.initiative;
+            // UPDATED: actor.data.data -> actor.system
+            const initiative = actor.system.attributes.initiative;
             const rollNames = ['all', 'initiative'];
             if (initiative.ability === 'perception') {
                 rollNames.push('wis-based');
                 rollNames.push('perception');
             } else {
-                const skill = actor.data.data.skills[initiative.ability];
+                // UPDATED: actor.data.data -> actor.system
+                const skill = actor.system.skills[initiative.ability];
                 rollNames.push(`${skill.ability}-based`);
                 rollNames.push(skill.name);
             }
@@ -403,6 +407,7 @@ class LMRTFYRoller extends Application {
     }
 
     _tagMessage(candidate, data, options) {
+        // UPDATED: Use updateSource for V10+ compatibility (handles pre-create flags properly)
         candidate.updateSource({"flags.lmrtfy": {"message": this.data.message, "data": this.data.attach, "blind": candidate.blind}});
     }
 
@@ -442,8 +447,8 @@ class LMRTFYRoller extends Application {
 
         for (let actor of this.actors) {
             Hooks.once("preCreateChatMessage", this._tagMessage.bind(this));
-			actor.rollCorruption();
-            }
+            actor.rollCorruption();
+        }
 
         game.settings.set("core", "rollMode", rollMode);
 
@@ -467,6 +472,7 @@ class LMRTFYRoller extends Application {
 
             const rollData = actor.getRollData();
             const roll = new Roll(formula, rollData);
+            // UPDATED: evaluate() is generally preferred in V12+, but toMessage() handles evaluation internally if needed.
             const rollMessageData = await roll.toMessage(
                 {"flags.lmrtfy": messageFlag},
                 {rollMode: this.mode, create: false},
@@ -656,7 +662,7 @@ class LMRTFYRoller extends Application {
                 break;
             case 'demonlord': 
                 this._makeDemonLordInitiativeRoll(event);
-                break;                
+                break;                 
             default:
                 if (this.data.initiative) {
                     for (let actor of this.actors) {
