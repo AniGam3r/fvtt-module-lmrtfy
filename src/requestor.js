@@ -44,25 +44,27 @@ class LMRTFYRequestor extends FormApplication {
     }
 
     async getData() {
-        // D&D 5.2.5 / V13 Fix: Use .contents, remove .entities
+        // V13 FIX: Use .contents instead of .entities (which is removed)
         const actors = game.actors.contents;
         const users = game.users.contents;
-
+        
         const abilities = LMRTFY.abilities;
         const saves = LMRTFY.saves;
         const abilityModifiers = LMRTFY.abilityModifiers;
 
-        // D&D 5e 5.x Fix: Skills are objects { label: "Acrobatics" }, not strings.
-        // This sorting logic now safely handles both.
+        // V13/5e FIX: Handle Skills as Objects vs Strings
+        // The previous sort function was missing a 'return', and .localize() failed on objects.
         const skills = Object.keys(LMRTFY.skills)
             .sort((a, b) => {
-                const skillA = (LMRTFY.skills[a]?.label) ? LMRTFY.skills[a].label : LMRTFY.skills[a];
-                const skillB = (LMRTFY.skills[b]?.label) ? LMRTFY.skills[b].label : LMRTFY.skills[b];
+                const skillA = LMRTFY.skills[a]?.label ?? LMRTFY.skills[a] ?? "";
+                const skillB = LMRTFY.skills[b]?.label ?? LMRTFY.skills[b] ?? "";
                 return game.i18n.localize(skillA).localeCompare(game.i18n.localize(skillB));
             })
             .reduce((acc, skillKey) => {
-                const skill = (LMRTFY.skills[skillKey]?.label) ? LMRTFY.skills[skillKey]?.label : LMRTFY.skills[skillKey];
-                acc[skillKey] = skill;
+                const skillObj = LMRTFY.skills[skillKey];
+                // Ensure we pass a String to the template, not an Object
+                const label = skillObj?.label ?? skillObj ?? "";
+                acc[skillKey] = label;
                 return acc;
             }, {});
 
@@ -99,9 +101,9 @@ class LMRTFYRequestor extends FormApplication {
     activateListeners(html) {
         super.activateListeners(html);
         
-        // V13 Safety: Ensure html is wrapped
+        // V13 FIX: Ensure html is wrapped in jQuery
         html = $(html);
-        
+
         html.find(".select-all").click((event) => this.setActorSelection(event, true));
         html.find(".deselect-all").click((event) => this.setActorSelection(event, false));
         html.find("select[name=user]").change(this._onUserChange.bind(this));
@@ -134,7 +136,7 @@ class LMRTFYRequestor extends FormApplication {
             const actor = game.actors.get(actorId);
             if (!actor) return;
             
-            // D&D 5.2.5 Fix: Use .contents
+            // V13 FIX: Use .contents
             const gameUsers = game.users.contents;
             const user = userId === "character" ? gameUsers.find(u => u.character && u.character.id === actor.id) : null;
             const tooltip = document.createElement("SPAN");
@@ -147,15 +149,17 @@ class LMRTFYRequestor extends FormApplication {
     _getUserActorIds(userId) {
         let actors = [];
         if (userId === "character") {
+            // V13 FIX: Use .contents
             const gameUsers = game.users.contents;
             actors = gameUsers.map(u => u.character?.id).filter(a => a)
         } else if (userId === "tokens") {
+            // V13 FIX: Safe access to controlled tokens
             actors = Array.from(new Set(canvas.tokens.controlled.map(t => t.actor?.id))).filter(a => a);
         } else {
             const user = game.users.get(userId);
             if (user) {
+                // V13 FIX: Use .contents and testUserPermission (permission property is deprecated)
                 const gameActors = game.actors.contents;
-                // V13 Fix: permission deprecated, using testUserPermission
                 actors = gameActors.filter(a => a.testUserPermission(user, "OWNER")).map(a => a.id)
             }
         }
@@ -192,7 +196,6 @@ class LMRTFYRequestor extends FormApplication {
     bonusClick(event) {
         let bonus = event?.currentTarget?.dataset?.value;
         let newBonus = +(this.bonusFormula.trim().replace(' ', '')) + +bonus;
-        
         if (newBonus === 0) {
             this.bonusFormula = '';
         } else {
