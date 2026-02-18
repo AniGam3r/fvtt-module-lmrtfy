@@ -1,8 +1,7 @@
-
-
 class LMRTFYRequestor extends FormApplication {
     constructor(...args) {
         super(...args)
+        // UPDATED: This is old-school, but functionally harmless in V13 for FormApps
         game.users.apps.push(this);
         
         this.selectedDice = [];
@@ -32,7 +31,7 @@ class LMRTFYRequestor extends FormApplication {
                 break;
             case "demonlord":
                 template = "modules/lmrtfy/templates/demonlord-request-rolls.html";
-                break;                
+                break;                 
             default:
                 template = "modules/lmrtfy/templates/request-rolls.html";
                 break;
@@ -55,8 +54,10 @@ class LMRTFYRequestor extends FormApplication {
 
     async getData() {
         // Return data to the template
-        const actors = game.actors.entities || game.actors.contents;
-        const users = game.users.entities || game.users.contents;
+        // UPDATED: .entities is dead in V13. Use .contents
+        const actors = game.actors.contents;
+        const users = game.users.contents;
+        
         // Note: Maybe these work better at a global level, but keeping things simple
         const abilities = LMRTFY.abilities;
         const saves = LMRTFY.saves;
@@ -77,6 +78,7 @@ class LMRTFYRequestor extends FormApplication {
         let tables = null;
         if (game.tables) {
             tables = [];
+            // UPDATED: .forEach works on the Collection directly in V13
             game.tables.forEach(
                 t => tables.push(t.name)
             );
@@ -141,7 +143,8 @@ class LMRTFYRequestor extends FormApplication {
             const actorId = div.dataset.id;
             const actor = game.actors.get(actorId);
             if (!actor) return;
-            const gameUsers = game.users.entities || game.users.contents;
+            // UPDATED: Use .contents
+            const gameUsers = game.users.contents;
             const user = userId === "character" ? gameUsers.find(u => u.character && u.character.id === actor.id) : null;
             const tooltip = document.createElement("SPAN");
             tooltip.classList.add("tooltip");
@@ -153,14 +156,18 @@ class LMRTFYRequestor extends FormApplication {
     _getUserActorIds(userId) {
         let actors = [];
         if (userId === "character") {
-            const gameUsers = game.users.entities || game.users.contents;
+            // UPDATED: Use .contents
+            const gameUsers = game.users.contents;
             actors = gameUsers.map(u => u.character?.id).filter(a => a)
         } else if (userId === "tokens") {
+            // UPDATED: canvas.tokens.controlled is an Array of Tokens in V13 (no longer placeables)
             actors = Array.from(new Set(canvas.tokens.controlled.map(t => t.actor.id))).filter(a => a);
         } else {
             const user = game.users.get(userId);
             if (user) {
-                const gameActors = game.actors.contents || game.actors.entities;
+                // UPDATED: Use .contents
+                const gameActors = game.actors.contents;
+                // UPDATED: testUserPermission is the V11+ standard (replaces testPermission)
                 actors = gameActors.filter(a => a.testUserPermission(user, "OWNER")).map(a => a.id)
             }
         }
@@ -241,7 +248,7 @@ class LMRTFYRequestor extends FormApplication {
                 }
 
                 formula += count + die;
-            }            
+            }             
         }
 
         return formula;        
@@ -276,7 +283,7 @@ class LMRTFYRequestor extends FormApplication {
 
             if (this.bonusFormula?.length) {
                 customFormula += this.bonusFormula;
-            }            
+            }             
         } else {
             this.element.find(".custom-formula").val('');
         }
@@ -396,11 +403,12 @@ class LMRTFYRequestor extends FormApplication {
         }
         if (game.system.id === 'demonlord') {
             socketData['boonsBanes'] = boonsBanes;
-            socketData['additionalModifier'] = additionalModifier;            
+            socketData['additionalModifier'] = additionalModifier;             
         }
         
         if (saveAsMacro) {
             let selectedSection = '';
+            // UPDATED: Generated Macro script logic check. canvas.tokens.controlled is correct for V13.
             if (socketData.user === 'selected') {
                 selectedSection = `// Handle selected user\n` +
                     `if (data.user === "selected") {\n` +
@@ -424,6 +432,8 @@ class LMRTFYRequestor extends FormApplication {
                 `const data = ${JSON.stringify(socketData, null, 2)};\n\n` +
                 `${selectedSection}` +
                 `game.socket.emit('module.lmrtfy', data);\n`;
+            
+            // UPDATED: Macro.create is still valid for creating documents
             const macro = await Macro.create({
                 name: "LMRTFY: " + (message || title),
                 type: "script",
